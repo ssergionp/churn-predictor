@@ -1,13 +1,23 @@
 """
 Trains a baseline churn prediction model and saves it to data/model.pkl.
 
+Dataset: Telco Customer Churn (Kaggle)
+    https://www.kaggle.com/datasets/blastchar/telco-customer-churn
+
+Download instructions:
+    Option A - manual:
+        1. Open the Kaggle page above and click "Download".
+        2. Unzip and copy the CSV (WA_Fn-UseC_-Telecom-Customer-Churn.csv)
+           into backend/data/telco_churn.csv
+
+    Option B - Kaggle CLI (requires a Kaggle account + API token in
+    ~/.kaggle/kaggle.json, see https://github.com/Kaggle/kaggle-api#api-credentials):
+        pip install kaggle
+        kaggle datasets download -d blastchar/telco-customer-churn -p data --unzip
+        mv "data/WA_Fn-UseC_-Telecom-Customer-Churn.csv" data/telco_churn.csv
+
 Usage:
     python train_model.py
-
-TODO:
-    1. Download a churn dataset (e.g. Kaggle's "Telco Customer Churn") into data/raw.csv
-    2. Adjust the feature columns below to match your dataset
-    3. Replace the dummy data generation with real data loading
 """
 
 from pathlib import Path
@@ -22,40 +32,51 @@ from sklearn.preprocessing import OneHotEncoder
 
 DATA_DIR = Path(__file__).parent / "data"
 MODEL_PATH = DATA_DIR / "model.pkl"
+RAW_CSV_PATH = DATA_DIR / "telco_churn.csv"
 
 CATEGORICAL_FEATURES = ["contract_type"]
 NUMERIC_FEATURES = ["tenure_months", "monthly_charges", "total_charges"]
 BOOLEAN_FEATURES = ["has_internet_service", "has_tech_support"]
 
+# Maps the raw Kaggle "Contract" values to the values used by the app's
+# CustomerFeatures schema (see app/models/schemas.py).
+CONTRACT_TYPE_MAP = {
+    "Month-to-month": "month-to-month",
+    "One year": "one_year",
+    "Two year": "two_year",
+}
 
-def load_dummy_dataset(n: int = 500) -> pd.DataFrame:
-    """Placeholder dataset generator so the pipeline runs out of the box.
 
-    Replace this with `pd.read_csv(DATA_DIR / "raw.csv")` once you have
-    downloaded a real dataset.
+def load_dataset() -> pd.DataFrame:
+    """Loads the Telco Customer Churn dataset from data/telco_churn.csv and
+    maps its raw columns onto the feature schema used by the app.
     """
-    import numpy as np
+    if not RAW_CSV_PATH.exists():
+        raise FileNotFoundError(
+            f"Dataset not found at {RAW_CSV_PATH}.\n"
+            "Download the Telco Customer Churn dataset from "
+            "https://www.kaggle.com/datasets/blastchar/telco-customer-churn "
+            "and save it as backend/data/telco_churn.csv "
+            "(see the instructions at the top of train_model.py)."
+        )
 
-    rng = np.random.default_rng(42)
+    raw = pd.read_csv(RAW_CSV_PATH)
+
+    # TotalCharges is stored as a string and has blank values for a
+    # handful of customers with zero tenure; coerce and fill those with 0.
+    total_charges = pd.to_numeric(raw["TotalCharges"], errors="coerce").fillna(0.0)
+
     df = pd.DataFrame(
         {
-            "tenure_months": rng.integers(0, 72, n),
-            "monthly_charges": rng.uniform(20, 120, n),
-            "total_charges": rng.uniform(20, 8000, n),
-            "contract_type": rng.choice(
-                ["month-to-month", "one_year", "two_year"], n
-            ),
-            "has_internet_service": rng.choice([True, False], n),
-            "has_tech_support": rng.choice([True, False], n),
+            "tenure_months": raw["tenure"],
+            "monthly_charges": raw["MonthlyCharges"],
+            "total_charges": total_charges,
+            "contract_type": raw["Contract"].map(CONTRACT_TYPE_MAP),
+            "has_internet_service": raw["InternetService"] != "No",
+            "has_tech_support": raw["TechSupport"] == "Yes",
+            "churn": raw["Churn"] == "Yes",
         }
     )
-    # Simple synthetic churn rule for demonstration purposes only.
-    churn_score = (
-        (df["contract_type"] == "month-to-month").astype(int) * 0.4
-        + (~df["has_tech_support"]).astype(int) * 0.3
-        + (df["tenure_months"] < 12).astype(int) * 0.3
-    )
-    df["churn"] = (churn_score + rng.normal(0, 0.1, n)) > 0.5
     return df
 
 
@@ -76,7 +97,7 @@ def build_pipeline() -> Pipeline:
 
 def main():
     DATA_DIR.mkdir(exist_ok=True)
-    df = load_dummy_dataset()
+    df = load_dataset()
 
     feature_cols = NUMERIC_FEATURES + CATEGORICAL_FEATURES + BOOLEAN_FEATURES
     X = df[feature_cols]
