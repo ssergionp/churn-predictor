@@ -15,8 +15,17 @@ def _get_allowed_origins() -> list[str]:
     """Reads ALLOWED_ORIGINS as a comma-separated list of origins, falling
     back to the local Vite dev server if it's not set.
     """
-    raw = os.environ.get("ALLOWED_ORIGINS", DEFAULT_ALLOWED_ORIGINS)
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    raw = os.environ.get("ALLOWED_ORIGINS")
+    if raw:
+        source = "the ALLOWED_ORIGINS env var"
+    else:
+        source = f"the default (ALLOWED_ORIGINS is not set) - {DEFAULT_ALLOWED_ORIGINS!r}"
+    origins = [origin.strip() for origin in (raw or DEFAULT_ALLOWED_ORIGINS).split(",") if origin.strip()]
+
+    print(f"[cors] ALLOWED_ORIGINS loaded from: {source}")
+    print(f"[cors] Effective allow_origins passed to CORSMiddleware: {origins}")
+
+    return origins
 
 
 @asynccontextmanager
