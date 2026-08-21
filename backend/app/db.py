@@ -23,6 +23,30 @@ if not DATABASE_URL:
     )
 
 
+def _normalize_database_url(url: str) -> str:
+    """Rewrites the bare `postgres://`/`postgresql://` schemes that hosting
+    providers (Render, Heroku, etc.) hand out to `postgresql+psycopg://`, so
+    SQLAlchemy picks the psycopg (v3) driver instead of defaulting to
+    psycopg2. Any other scheme (sqlite, an already-qualified
+    postgresql+..., etc.) is left untouched.
+
+    Values pasted into a platform's dashboard env var field (as opposed to
+    read from backend/.env, which python-dotenv already trims) can carry
+    incidental leading/trailing whitespace or mixed case, either of which
+    would make a plain `.startswith()` check silently miss - so both are
+    normalized away before matching the scheme.
+    """
+    stripped = url.strip()
+    lowered = stripped.lower()
+    for scheme in ("postgres://", "postgresql://"):
+        if lowered.startswith(scheme):
+            return "postgresql+psycopg://" + stripped[len(scheme) :]
+    return stripped
+
+
+DATABASE_URL = _normalize_database_url(DATABASE_URL)
+
+
 def _mask_database_url(url: str) -> str:
     """Replaces the password in a DB URL with **** for safe logging."""
     parts = urlsplit(url)
