@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CustomerFeatures(BaseModel):
@@ -20,3 +22,12 @@ class PredictionResponse(BaseModel):
     churn_probability: float = Field(..., ge=0, le=1)
     will_churn: bool
     top_factors: list[str] = []
+
+
+class PredictionHistoryItem(CustomerFeatures, PredictionResponse):
+    """A saved prediction, as returned by GET /api/predictions."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime

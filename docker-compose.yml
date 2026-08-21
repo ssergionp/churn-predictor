@@ -6,7 +6,10 @@ services:
       POSTGRES_PASSWORD: churn
       POSTGRES_DB: churn_db
     ports:
-      - "5432:5432"
+      # Host port 5433 avoids clashing with a native PostgreSQL install that
+      # may already be bound to 5432. Container-to-container traffic (the
+      # backend service below) still uses the internal 5432 unaffected.
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 
@@ -17,7 +20,7 @@ services:
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgresql://churn:churn@db:5432/churn_db
+      DATABASE_URL: postgresql+psycopg://churn:churn@db:5432/churn_db
 
   frontend:
     build: ./frontend
