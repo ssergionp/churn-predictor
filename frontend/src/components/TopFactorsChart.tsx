@@ -59,7 +59,7 @@ function TopFactorsChart({ factors }: TopFactorsChartProps) {
     <div>
       <h3 style={{ margin: "0 0 0.25rem", fontSize: "1rem" }}>Top churn factors</h3>
       <p style={{ margin: "0 0 0.75rem", fontSize: "0.8rem", color: "#52514e" }}>
-        Ranked by the model's overall feature importance, most to least influential.
+        The factors with the biggest impact on this customer's predicted churn risk (via SHAP), most to least influential.
       </p>
       <ResponsiveContainer width="100%" height={48 * data.length + 16}>
         <BarChart data={data} layout="vertical" margin={{ top: 4, right: 32, bottom: 4, left: 4 }}>

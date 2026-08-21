@@ -49,28 +49,65 @@ def trained_pipeline():
 
 
 @pytest.fixture(autouse=True)
-def reset_top_factors_cache():
-    predictor._top_factors = None
+def reset_explainer_cache():
+    predictor._explainer = None
     yield
-    predictor._top_factors = None
+    predictor._explainer = None
 
 
-def test_get_top_factors_returns_three_clean_feature_names(trained_pipeline):
-    top_factors = predictor._get_top_factors(trained_pipeline)
+def test_build_output_feature_sources_maps_one_hot_dummies_to_original_column(
+    trained_pipeline,
+):
+    preprocessor = trained_pipeline.named_steps["preprocessor"]
+    sources = predictor._build_output_feature_sources(preprocessor)
 
-    assert len(top_factors) == 3
-    for name in top_factors:
-        assert not name.startswith("cat__")
-        assert not name.startswith("remainder__")
+    # 3 one-hot dummies for contract_type + 5 passthrough columns.
+    assert sources.count("contract_type") == 3
+    for field in NUMERIC_FEATURES + BOOLEAN_FEATURES:
+        assert sources.count(field) == 1
+    assert len(sources) == 8
 
 
-def test_get_top_factors_is_cached(trained_pipeline):
-    first = predictor._get_top_factors(trained_pipeline)
-    second = predictor._get_top_factors(trained_pipeline)
+def test_explain_prediction_returns_top_three_ranked_by_abs_shap(trained_pipeline):
+    df = pd.DataFrame(
+        [
+            {
+                "tenure_months": 12,
+                "monthly_charges": 80.0,
+                "total_charges": 960.0,
+                "contract_type": "month-to-month",
+                "has_internet_service": True,
+                "has_tech_support": False,
+            }
+        ]
+    )
+
+    ranked = predictor._explain_prediction(trained_pipeline, df)
+
+    assert len(ranked) == 3
+    names = [name for name, _ in ranked]
+    assert len(set(names)) == len(names)  # no duplicate/unaggregated one-hot dummies
+
+    magnitudes = [abs(value) for _, value in ranked]
+    assert magnitudes == sorted(magnitudes, reverse=True)
+
+
+def test_explainer_is_cached(trained_pipeline):
+    first = predictor._get_explainer(trained_pipeline)
+    second = predictor._get_explainer(trained_pipeline)
     assert first is second
 
 
-def test_predict_churn_includes_top_factors(monkeypatch, trained_pipeline):
+@pytest.mark.parametrize(
+    "shap_value,expected_direction",
+    [(0.12, "increases risk"), (-0.08, "decreases risk")],
+)
+def test_format_factor_direction(shap_value, expected_direction):
+    formatted = predictor._format_factor("tenure_months", shap_value)
+    assert formatted == f"tenure_months ({expected_direction})"
+
+
+def test_predict_churn_includes_shap_ranked_top_factors(monkeypatch, trained_pipeline):
     monkeypatch.setattr(predictor, "_get_model", lambda: trained_pipeline)
 
     features = CustomerFeatures(
@@ -84,3 +121,5 @@ def test_predict_churn_includes_top_factors(monkeypatch, trained_pipeline):
     response = predictor.predict_churn(features)
 
     assert len(response.top_factors) == 3
+    for factor in response.top_factors:
+        assert factor.endswith("(increases risk)") or factor.endswith("(decreases risk)")
