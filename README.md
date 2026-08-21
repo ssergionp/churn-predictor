@@ -4,6 +4,13 @@ A full-stack application that predicts customer churn using a machine learning m
 
 ![CI](https://github.com/YOUR_USERNAME/churn-predictor/actions/workflows/ci.yml/badge.svg)
 
+## Live Demo
+
+- **Frontend**: [churn-predictor-lilac.vercel.app](https://churn-predictor-lilac.vercel.app)
+- **Backend API docs**: [churn-predictor-api-n7lu.onrender.com/docs](https://churn-predictor-api-n7lu.onrender.com/docs)
+
+> **Note**: the backend runs on Render's free tier, which spins down after periods of inactivity. If the app has been idle, the first request may take 30–50 seconds to respond while the server wakes back up — subsequent requests are fast.
+
 ## Overview
 
 This project demonstrates an end-to-end data science + software engineering workflow:
@@ -17,8 +24,8 @@ This project demonstrates an end-to-end data science + software engineering work
 
 | Layer      | Technology                          |
 |------------|--------------------------------------|
-| ML / Data  | Python, pandas, scikit-learn         |
-| Backend    | FastAPI, SQLAlchemy, PostgreSQL      |
+| ML / Data  | Python, pandas, scikit-learn, SHAP   |
+| Backend    | FastAPI, SQLAlchemy, PostgreSQL (psycopg3) |
 | Frontend   | React, TypeScript, Vite, Recharts    |
 | Testing    | pytest, Vitest                       |
 | DevOps     | Docker, Docker Compose, GitHub Actions |
@@ -78,13 +85,18 @@ App available at `http://localhost:5173`.
 docker compose up --build
 ```
 
+## Deployment
+
+- **Frontend** is deployed on [Vercel](https://vercel.com), built from `frontend/` with `VITE_API_URL` pointing at the Render backend.
+- **Backend** is deployed on [Render](https://render.com) as a Docker web service, with `DATABASE_URL` pointing at a Render-managed PostgreSQL instance and `ALLOWED_ORIGINS` set to the Vercel frontend's URL for CORS.
+
 ## Roadmap
 
 - [ ] Train baseline model and expose `/predict` endpoint
 - [ ] Build dashboard with prediction form and result visualization
-- [ ] Add prediction history stored in PostgreSQL
-- [ ] Add model explainability (SHAP values) to the API
-- [ ] Deploy backend (Render/Fly.io) and frontend (Vercel)
+- [x] Add prediction history stored in PostgreSQL
+- [x] Add model explainability (SHAP values) to the API
+- [x] Deploy backend (Render/Fly.io) and frontend (Vercel)
 
 ## License
 
